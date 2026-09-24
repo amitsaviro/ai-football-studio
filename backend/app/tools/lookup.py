@@ -39,19 +39,23 @@ TEAM_ALIASES = {
 
 @dataclass
 class Lookup:
+    """Result of a name search: `match` when exactly one row fits, otherwise the candidates."""
     match: dict | None          # the single resolved row, if unambiguous
     candidates: list[dict]      # all plausible rows (for clarification / error messages)
 
     @property
     def ambiguous(self) -> bool:
+        """True when several rows fit and none clearly wins."""
         return self.match is None and len(self.candidates) > 1
 
 
 def _normalize(text: str) -> str:
+    """Treat an ASCII double quote like gershayim, so 'פ"ת' matches the alias 'פ״ת'."""
     return text.strip().replace('"', "״")
 
 
 def find_team(conn: Connection, name: str) -> Lookup:
+    """Resolve a team name: Hebrew alias table first, then exact / substring / trigram-similarity match."""
     query = TEAM_ALIASES.get(_normalize(name), name.strip())
     rows = conn.execute(
         """

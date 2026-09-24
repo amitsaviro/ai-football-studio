@@ -119,4 +119,5 @@ def call_tool(name: str, args: dict) -> dict:
 
 
 def call_tool_json(name: str, args: dict) -> str:
+    """call_tool, serialized for a tool_result message (keeps Hebrew readable)."""
     return json.dumps(call_tool(name, args), ensure_ascii=False)

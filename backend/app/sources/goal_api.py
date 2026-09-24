@@ -18,10 +18,11 @@ SOURCE = "goal_api"
 
 
 class QuotaExhausted(Exception):
-    pass
+    """Raised to stop a run cleanly: daily quota nearly used up, or a cache miss in offline mode."""
 
 
 class GoalApiClient:
+    """HTTP client for Goal API that checks the raw cache before spending a request."""
     def __init__(self, conn: Connection, api_key: str, quota_reserve: int = 20, offline: bool = False):
         if not api_key and not offline:
             raise ValueError("GOAL_API_KEY is not set")
@@ -38,6 +39,9 @@ class GoalApiClient:
         )
 
     def get(self, path: str, refresh: bool = False, **params) -> dict:
+        """GET one endpoint. Returns the cached payload unless refresh=True; otherwise calls the API,
+        updates the remaining-quota counter from the response headers and stores the payload in raw.api_responses.
+        """
         endpoint = f"{path}?{urlencode(sorted(params.items()))}" if params else path
         if not refresh:
             row = self.conn.execute(
@@ -75,6 +79,7 @@ class GoalApiClient:
         return body
 
     def get_all_pages(self, path: str, refresh: bool = False, page_size: int = 100) -> list[dict]:
+        """Follow offset/limit pagination until the API says hasMore=false; returns all `data` items."""
         items, offset = [], 0
         while True:
             body = self.get(path, refresh=refresh, limit=page_size, offset=offset)

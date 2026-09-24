@@ -35,6 +35,7 @@ def split_name(name: str) -> tuple[str | None, str]:
 
 
 def names_compatible(a: str, b: str) -> bool:
+    """True if two spellings can be the same person: equal ignoring case, or same surname and first initial."""
     if a.lower() == b.lower():
         return True
     (ia, sa), (ib, sb) = split_name(a), split_name(b)
@@ -42,14 +43,17 @@ def names_compatible(a: str, b: str) -> bool:
 
 
 def is_abbreviated(name: str) -> bool:
+    """True for provider-abbreviated names like 'E. Sokler'."""
     return bool(INITIAL_RE.match(name.strip()))
 
 
 class UnionFind:
+    """Minimal disjoint-set structure: groups keys that turn out to be the same player."""
     def __init__(self):
         self.parent: dict[str, str] = {}
 
     def find(self, x: str) -> str:
+        """Return the group representative of x (with path compression)."""
         self.parent.setdefault(x, x)
         while self.parent[x] != x:
             self.parent[x] = self.parent[self.parent[x]]
@@ -58,6 +62,11 @@ class UnionFind:
 
 
 def resolve_players(conn: Connection) -> int:
+    """Merge duplicate player keys into one canonical key (rules in the module docstring).
+
+    Rewrites lineups/goals to the canonical key, records aliases, deletes alias rows.
+    Returns the number of alias keys merged.
+    """
     rows = conn.execute(
         """
         SELECT l.player_key, p.name, l.team_id, l.fixture_id, true AS in_lineup

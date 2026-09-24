@@ -2,7 +2,7 @@
 
 A panel of AI pundits that debates the Israeli Premier League (Ligat Ha'Al) live. Every claim is checked against real data that syncs automatically.
 
-> Work in progress.
+> Work in progress. A Hebrew walkthrough of the codebase lives in [docs/GUIDE_HE.md](docs/GUIDE_HE.md).
 
 ## Structure
 ```

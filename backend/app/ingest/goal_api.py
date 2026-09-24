@@ -18,6 +18,7 @@ LINEUP_ROLES = {"startingLineups": "starter", "substitutes": "substitute", "coac
 
 
 def to_int(value) -> int | None:
+    """Parse the API's string numbers ('3', '', None) into int or None."""
     try:
         return int(str(value).strip())
     except (TypeError, ValueError):
@@ -31,6 +32,7 @@ def player_key(value) -> str | None:
 
 
 def to_number(value) -> float | None:
+    """Parse a stat value such as '17' or '50%' into a float, or None if it isn't numeric."""
     try:
         return float(str(value).strip().rstrip("%"))
     except (TypeError, ValueError):
@@ -38,6 +40,7 @@ def to_number(value) -> float | None:
 
 
 def upsert_team(conn: Connection, team_id: str, name: str, badge_url: str | None) -> None:
+    """Insert a team, or refresh its name/badge if it already exists."""
     conn.execute(
         """
         INSERT INTO teams (id, name, badge_url) VALUES (%s, %s, %s)
@@ -48,6 +51,11 @@ def upsert_team(conn: Connection, team_id: str, name: str, badge_url: str | None
 
 
 def sync_fixtures(conn: Connection, client: GoalApiClient, league_id: str, refresh: bool = True) -> int:
+    """Load every fixture of the league (all seasons) and the teams that play in them.
+
+    Always re-fetched (refresh=True) because scores and statuses change after each round.
+    Returns the number of fixtures processed.
+    """
     fixtures = client.get_all_pages(f"/leagues/{league_id}/fixtures", refresh=refresh)
     for f in fixtures:
         upsert_team(conn, f["homeTeamId"], f["homeTeam"]["name"], f["homeTeam"].get("badge"))
@@ -82,6 +90,10 @@ def sync_fixtures(conn: Connection, client: GoalApiClient, league_id: str, refre
 
 
 def load_fixture_details(conn: Connection, client: GoalApiClient, fixture: dict) -> None:
+    """Load lineups, goals and match stats for one fixture, replacing whatever was stored before.
+
+    Three API calls per fixture (served from the raw cache when available). The caller commits.
+    """
     fid = fixture["id"]
     team_by_side = {"home": fixture["home_team_id"], "away": fixture["away_team_id"]}
 
@@ -158,6 +170,11 @@ def load_fixture_details(conn: Connection, client: GoalApiClient, fixture: dict)
 
 
 def sync_details(conn: Connection, client: GoalApiClient, max_fixtures: int | None = None) -> int:
+    """Load details for finished fixtures that don't have them yet, newest first.
+
+    Stops early when the quota runs out, so running it once a day eventually fills everything.
+    Returns how many fixtures were loaded in this run.
+    """
     pending = conn.execute(
         """
         SELECT id, home_team_id, away_team_id FROM fixtures

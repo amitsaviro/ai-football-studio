@@ -36,10 +36,15 @@ match_stats(fixture_id, team_id, stat, value)  -- one row per stat per team, e.g
          -- stats: Attacks, Ball Possession, Corners, Dangerous Attacks, Fouls, Offsides, On Target,
          --        Passes Accurate, Passes Total, Red Cards, Saves, Shots Blocked, Shots Inside Box,
          --        Shots Off Goal, Shots On Goal, Shots Outside Box, Shots Total, Yellow Cards
+Group and label players by joining players ON key = scorer_key / assist_key / player_key and using
+players.display_name: scorer_name/assist_name are raw provider spellings and split one player into several.
 Use unaccent(lower(name)) for name matching."""
 
 
 def run_sql(query: str) -> dict:
+    """Tool: run one LLM-written SELECT through the read-only role. Errors are returned, not raised,
+    so the model can read the message and fix its query.
+    """
     query = query.strip().rstrip(";").strip()
     if not ALLOWED_START.match(query):
         return {"error": "Only a single SELECT (or WITH ... SELECT) query is allowed."}

@@ -28,14 +28,17 @@ def clean(value):
 
 
 def current_season(conn: Connection) -> str:
+    """Latest season that has at least one played match."""
     return conn.execute(f"SELECT max(season) AS s FROM fixtures f WHERE {PLAYED}").fetchone()["s"]
 
 
 def _season(conn: Connection, season: str | None) -> str:
+    """Default a missing season argument to the current season."""
     return season or current_season(conn)
 
 
 def _unresolved(kind: str, name: str, lookup: Lookup) -> dict:
+    """Build the error payload for a name that matched nothing, or matched several candidates."""
     if not lookup.candidates:
         return {"error": f"No {kind} found matching '{name}'."}
     fields = ("name", "teams", "position", "last_season", "appearances", "is_coach")
@@ -60,6 +63,7 @@ def incomplete_seasons(conn: Connection, seasons: set[str]) -> list[str]:
 
 
 def _with_coverage_warning(conn: Connection, result: dict, seasons: set[str]) -> dict:
+    """Attach a warning to `result` if any of `seasons` is only partly loaded."""
     missing = incomplete_seasons(conn, seasons)
     if missing:
         result["warning"] = (f"Match details are only partly loaded for {', '.join(missing)}: "
@@ -69,6 +73,7 @@ def _with_coverage_warning(conn: Connection, result: dict, seasons: set[str]) ->
 
 
 def _team(conn: Connection, name: str) -> tuple[dict | None, dict | None]:
+    """Resolve a team name. Returns (team_row, None) on success or (None, error_payload)."""
     lookup = find_team(conn, name)
     return (lookup.match, None) if lookup.match else (None, _unresolved("team", name, lookup))
 
@@ -76,6 +81,7 @@ def _team(conn: Connection, name: str) -> tuple[dict | None, dict | None]:
 # --------------------------------------------------------------------------- coverage
 
 def data_coverage(conn: Connection) -> dict:
+    """Tool: which seasons/matches exist and what the data can't answer. Keeps pundits honest."""
     rows = conn.execute(
         f"""
         SELECT season,
@@ -105,6 +111,7 @@ def data_coverage(conn: Connection) -> dict:
 
 def league_table(conn: Connection, season: str | None = None, venue: str = "all",
                  up_to_round: int | None = None) -> dict:
+    """Tool: league table computed from results, overall or home/away, optionally after a given round."""
     season = _season(conn, season)
     sides = {
         "all": ("home", "away"),
@@ -139,6 +146,7 @@ def league_table(conn: Connection, season: str | None = None, venue: str = "all"
 
 def top_scorers(conn: Connection, season: str | None = None, team: str | None = None,
                 rank_by: str = "goals", limit: int = 10) -> dict:
+    """Tool: ranking by goals, assists or goals+assists for a season, optionally within one team."""
     season = _season(conn, season)
     team_row = None
     if team:
@@ -175,6 +183,7 @@ def top_scorers(conn: Connection, season: str | None = None, team: str | None = 
 # --------------------------------------------------------------------------- players
 
 def player_stats(conn: Connection, player: str, season: str | None = None, team: str | None = None) -> dict:
+    """Tool: one player's (or coach's) record per season and team: starts, bench listings, goals, assists."""
     team_row = None
     if team:
         team_row, err = _team(conn, team)
@@ -223,6 +232,7 @@ def player_stats(conn: Connection, player: str, season: str | None = None, team:
 # --------------------------------------------------------------------------- teams
 
 def _match_rows(conn: Connection, where: str, params: dict, limit: int) -> list[dict]:
+    """Played matches matching a WHERE clause, newest first (shared by team_form and head_to_head)."""
     return conn.execute(
         f"""
         SELECT f.kickoff_utc AS date, f.season, f.round, h.name AS home, a.name AS away,
@@ -236,11 +246,13 @@ def _match_rows(conn: Connection, where: str, params: dict, limit: int) -> list[
 
 
 def _result_for(team_id: str, m: dict) -> str:
+    """W / D / L from the point of view of `team_id`."""
     gf, ga = (m["home_score"], m["away_score"]) if m["home_team_id"] == team_id else (m["away_score"], m["home_score"])
     return "W" if gf > ga else "D" if gf == ga else "L"
 
 
 def team_form(conn: Connection, team: str, last_n: int = 5, venue: str = "all") -> dict:
+    """Tool: a team's last N results, as a W/D/L string plus goals for/against."""
     team_row, err = _team(conn, team)
     if err:
         return err
@@ -264,6 +276,7 @@ def team_form(conn: Connection, team: str, last_n: int = 5, venue: str = "all") 
 
 
 def head_to_head(conn: Connection, team_a: str, team_b: str, limit: int = 10) -> dict:
+    """Tool: recent meetings between two teams and a win/draw/loss summary."""
     a, err = _team(conn, team_a)
     if err:
         return err
