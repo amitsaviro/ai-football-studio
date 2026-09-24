@@ -10,6 +10,8 @@ load_dotenv(Path(__file__).resolve().parent.parent / ".env")
 @dataclass(frozen=True)
 class Settings:
     database_url: str = os.getenv("DATABASE_URL", "postgresql:///football")
+    # Read-only role for LLM-written SQL (db/readonly_role.sql)
+    database_url_readonly: str = os.getenv("DATABASE_URL_READONLY", "postgresql://pundit_ro@/football")
     goal_api_key: str = os.getenv("GOAL_API_KEY", "")
     api_football_key: str = os.getenv("API_FOOTBALL_KEY", "")
     anthropic_api_key: str = os.getenv("ANTHROPIC_API_KEY", "")

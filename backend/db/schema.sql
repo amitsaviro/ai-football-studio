@@ -6,6 +6,10 @@
 
 CREATE SCHEMA IF NOT EXISTS raw;
 
+-- Name search: accent-insensitive ('Davó' = 'Davo') and typo-tolerant (trigram similarity).
+CREATE EXTENSION IF NOT EXISTS unaccent;
+CREATE EXTENSION IF NOT EXISTS pg_trgm;
+
 CREATE TABLE IF NOT EXISTS raw.api_responses (
     source      text        NOT NULL,              -- 'goal_api' | 'api_football'
     endpoint    text        NOT NULL,              -- path + sorted query string
@@ -93,3 +97,11 @@ CREATE TABLE IF NOT EXISTS match_stats (
     value      numeric,                            -- '50%' stored as 50
     PRIMARY KEY (fixture_id, team_id, stat)
 );
+
+-- Tables are dropped on --rebuild, so re-grant the read-only role (db/readonly_role.sql) if it exists.
+DO $$
+BEGIN
+    IF EXISTS (SELECT FROM pg_roles WHERE rolname = 'pundit_ro') THEN
+        GRANT SELECT ON teams, players, fixtures, lineups, goals, match_stats TO pundit_ro;
+    END IF;
+END $$;
