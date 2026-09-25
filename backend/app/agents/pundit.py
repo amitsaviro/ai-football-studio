@@ -63,14 +63,17 @@ class Event:
 
 
 def ask(question: str, persona: str, history: list[dict] | None = None,
-        client: anthropic.Anthropic | None = None) -> Iterator[Event]:
+        client: anthropic.Anthropic | None = None, tools: list[dict] | None = None) -> Iterator[Event]:
     """Answer `question` in the voice of `persona`, calling tools as needed.
 
     Yields Events as it works: tool_call and tool_result for every tool use, then a final
     `answer` (text, updated message history, usage/cost) or an `error`. Pass `history` from a
-    previous answer's `messages` to continue the same conversation.
+    previous answer's `messages` to continue the same conversation. `tools` defaults to all
+    stats tools; pass [] for a speaker who only talks (e.g. the panel host).
     """
     client = client or anthropic.Anthropic()
+    tools = TOOLS if tools is None else tools
+    tool_params = {"tools": tools} if tools else {}
     messages = list(history or []) + [{"role": "user", "content": question}]
     usage = Usage()
     model = settings.pundit_model
@@ -80,8 +83,8 @@ def ask(question: str, persona: str, history: list[dict] | None = None,
             model=model,
             max_tokens=16000,
             system=persona,
-            tools=TOOLS,
             messages=messages,
+            **tool_params,
             thinking={"type": "adaptive"},
             output_config={"effort": settings.pundit_effort},
             # The tool definitions + persona are identical on every call: cache them.
