@@ -179,7 +179,8 @@ def top_scorers(conn: Connection, season: str | None = None, team: str | None = 
         team_row, err = _team(conn, team)
         if err:
             return err
-    order = {"goals": "goals", "assists": "assists", "goal_contributions": "goals + assists"}[rank_by]
+    # ORDER BY can use an output alias alone, but not inside an expression, hence the sums.
+    order = {"goals": "sum(goal)", "assists": "sum(assist)", "goal_contributions": "sum(goal) + sum(assist)"}[rank_by]
     rows = conn.execute(
         f"""
         WITH contrib AS (
@@ -197,7 +198,7 @@ def top_scorers(conn: Connection, season: str | None = None, team: str | None = 
         WHERE (%(t)s::text IS NULL OR c.team_id = %(t)s)
         GROUP BY p.key, p.display_name, t.name
         HAVING sum(goal) + sum(assist) > 0
-        ORDER BY {order} DESC, goals DESC, assists DESC, player
+        ORDER BY {order} DESC, sum(goal) DESC, sum(assist) DESC, player
         LIMIT %(n)s
         """,
         {"s": season, "t": team_row["id"] if team_row else None, "n": min(limit, 50)},

@@ -52,7 +52,8 @@ def run_sql(query: str) -> dict:
     if ";" in query:
         return {"error": "Only one statement is allowed; remove the ';'."}
 
-    try:
+    try:  
+        """set time for transaction if its too long top it for protection"""
         with psycopg.connect(
             settings.database_url_readonly,
             row_factory=dict_row,

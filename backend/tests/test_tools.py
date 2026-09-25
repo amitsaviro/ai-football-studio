@@ -114,6 +114,15 @@ def test_top_scorer_goals_match_player_stats(conn):
     assert season_row["goals"] == top["goals"]
 
 
+@pytest.mark.parametrize("rank_by", ["goals", "assists", "goal_contributions"])
+def test_top_scorers_every_ranking(conn, rank_by):
+    players = stats.top_scorers(conn, rank_by=rank_by, limit=10)["players"]
+    key = {"goals": lambda p: p["goals"], "assists": lambda p: p["assists"],
+           "goal_contributions": lambda p: p["goals"] + p["assists"]}[rank_by]
+    values = [key(p) for p in players]
+    assert values and values == sorted(values, reverse=True)
+
+
 def test_unknown_team_is_an_error_not_a_guess(conn):
     assert "error" in stats.team_form(conn, "Real Madrid")
 
