@@ -17,7 +17,7 @@ from app.config import settings  # noqa: E402
 from app.db import connect, init_schema  # noqa: E402
 from app.ingest.goal_api import sync_details, sync_fixtures  # noqa: E402
 from app.ingest.players import resolve_players  # noqa: E402
-from app.sources.goal_api import GoalApiClient  # noqa: E402
+from app.sources.goal_api import GoalApiClient, QuotaExhausted  # noqa: E402
 
 
 def main() -> None:
@@ -31,14 +31,26 @@ def main() -> None:
     log = logging.getLogger("ingest")
 
     with connect() as conn:
+        # Two runs at once would fetch the same fixtures twice and waste quota. A session-level
+        # advisory lock lets only one run proceed; Postgres releases it when this connection closes.
+        got_lock = conn.execute("SELECT pg_try_advisory_lock(hashtext('ingest')) AS ok").fetchone()["ok"]
+        conn.commit()
+        if not got_lock:
+            log.error("Another ingestion run is already in progress; exiting.")
+            sys.exit(1)
+
         if args.rebuild:
             conn.execute(
                 "DROP TABLE IF EXISTS match_stats, goals, lineups, player_aliases, players, fixtures, teams"
             )
         init_schema(conn)
-        client = GoalApiClient(conn, settings.goal_api_key, offline=args.rebuild)
+        client = GoalApiClient(settings.goal_api_key, offline=args.rebuild)
 
-        n = sync_fixtures(conn, client, settings.goal_league_id, refresh=not args.rebuild)
+        try:
+            n = sync_fixtures(conn, client, settings.goal_league_id, refresh=not args.rebuild)
+        except QuotaExhausted as e:
+            log.error("Could not refresh the fixture list (%s). Try again after the daily quota resets.", e)
+            sys.exit(1)
         log.info("Fixtures synced: %d", n)
 
         done = sync_details(conn, client, args.max_fixtures)

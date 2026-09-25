@@ -27,7 +27,8 @@ Tables (PostgreSQL). Seasons are text like '2026/2027'.
 teams(id, name, badge_url)
 players(key, name, display_name, position)  -- position: Goalkeepers/Defenders/Midfielders/Forwards
 fixtures(id, season, round, stage, kickoff_utc, status, home_team_id, away_team_id, home_score, away_score,
-         home_ht_score, away_ht_score, home_formation, away_formation, stadium, referee, details_fetched)
+         home_ht_score, away_ht_score, home_formation, away_formation, stadium, referee, details_fetched,
+         goals_complete)  -- goals_complete=false: provider's goal events don't add up to the score
          -- played matches: status IN ('FINISHED','AWARDED') AND home_score IS NOT NULL
 lineups(fixture_id, team_id, player_key, role, shirt_number)  -- role: starter/substitute/coach
 goals(id, fixture_id, team_id, minute, minute_text, scorer_key, scorer_name, assist_key, assist_name, info)

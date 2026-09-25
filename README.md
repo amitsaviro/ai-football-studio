@@ -36,4 +36,5 @@ The free data source has known problems. The pipeline works around them instead 
 - **The top-scorers and standings endpoints are wrong or stale.** Tables and scorer lists are computed from raw results and goal events.
 - **The same player can show up under several IDs.** For example, the lineup uses one key and the goal event another. `app/ingest/players.py` merges keys with compatible names at the same club that never appear in the same lineup.
 - **Key `0` means "unknown player".** It's dropped rather than merged.
+- **Some matches have no goal events at all.** `fixtures.goals_complete` flags them, and the tools warn that totals may be slightly low.
 - **Some match stats contradict each other** (`On Target` vs `Shots On Goal`), and the tools say so.

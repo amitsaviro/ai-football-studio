@@ -2,14 +2,18 @@
 
 Every successful response is stored in raw.api_responses. Cached endpoints are served
 from the DB, so re-running ingestion (or re-normalizing after a schema change) costs no quota.
+
+The cache uses its own autocommit connection: a response we paid quota for stays cached even
+when the caller rolls back its own transaction (e.g. the quota ran out halfway through a fixture).
 """
 
 import logging
 from urllib.parse import urlencode
 
 import httpx
-from psycopg import Connection
 from psycopg.types.json import Jsonb
+
+from app.db import connect
 
 log = logging.getLogger(__name__)
 
@@ -23,10 +27,11 @@ class QuotaExhausted(Exception):
 
 class GoalApiClient:
     """HTTP client for Goal API that checks the raw cache before spending a request."""
-    def __init__(self, conn: Connection, api_key: str, quota_reserve: int = 20, offline: bool = False):
+    def __init__(self, api_key: str, quota_reserve: int = 20, offline: bool = False):
         if not api_key and not offline:
             raise ValueError("GOAL_API_KEY is not set")
-        self.conn = conn
+        self.cache = connect()
+        self.cache.autocommit = True  # every cached response is saved immediately
         self.offline = offline  # serve from cache only; a cache miss stops the run
         self.quota_reserve = quota_reserve  # stop before hitting zero; leave room for manual checks
         self.remaining: int | None = None
@@ -44,7 +49,7 @@ class GoalApiClient:
         """
         endpoint = f"{path}?{urlencode(sorted(params.items()))}" if params else path
         if not refresh:
-            row = self.conn.execute(
+            row = self.cache.execute(
                 "SELECT payload FROM raw.api_responses WHERE source = %s AND endpoint = %s",
                 (SOURCE, endpoint),
             ).fetchone()
@@ -65,7 +70,7 @@ class GoalApiClient:
         resp.raise_for_status()
 
         body = resp.json()
-        self.conn.execute(
+        self.cache.execute(
             """
             INSERT INTO raw.api_responses (source, endpoint, status_code, payload)
             VALUES (%s, %s, %s, %s)

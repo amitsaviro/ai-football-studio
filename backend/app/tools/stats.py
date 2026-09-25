@@ -62,13 +62,36 @@ def incomplete_seasons(conn: Connection, seasons: set[str]) -> list[str]:
     return [r["season"] for r in rows]
 
 
+def matches_missing_goals(conn: Connection, seasons: set[str]) -> dict[str, int]:
+    """Per season: loaded matches whose goal events from the provider don't add up to the score."""
+    if not seasons:
+        return {}
+    rows = conn.execute(
+        """
+        SELECT season, count(*) AS n FROM fixtures
+        WHERE season = ANY(%s) AND details_fetched AND goals_complete = false
+        GROUP BY season
+        """,
+        (list(seasons),),
+    ).fetchall()
+    return {r["season"]: r["n"] for r in rows}
+
+
 def _with_coverage_warning(conn: Connection, result: dict, seasons: set[str]) -> dict:
-    """Attach a warning to `result` if any of `seasons` is only partly loaded."""
+    """Attach warnings to `result` if any of `seasons` is partly loaded or has provider gaps."""
+    warnings = []
     missing = incomplete_seasons(conn, seasons)
     if missing:
-        result["warning"] = (f"Match details are only partly loaded for {', '.join(missing)}: "
-                             "goals/assists/appearances for those seasons are incomplete. Do not draw "
-                             "conclusions from them.")
+        warnings.append(f"Match details are only partly loaded for {', '.join(missing)}: "
+                        "goals/assists/appearances for those seasons are incomplete. Do not draw "
+                        "conclusions from them.")
+    gaps = matches_missing_goals(conn, seasons)
+    if gaps:
+        detail = ", ".join(f"{n} in {season}" for season, n in sorted(gaps.items(), reverse=True))
+        warnings.append(f"The data provider is missing goal details for some matches ({detail}); "
+                        "goal and assist totals may be slightly low.")
+    if warnings:
+        result["warning"] = " ".join(warnings)
     return result
 
 
@@ -87,6 +110,7 @@ def data_coverage(conn: Connection) -> dict:
         SELECT season,
                count(*) FILTER (WHERE {PLAYED}) AS matches_played,
                count(*) FILTER (WHERE {PLAYED} AND details_fetched) AS matches_with_details,
+               count(*) FILTER (WHERE details_fetched AND goals_complete = false) AS matches_missing_goal_details,
                max(round) FILTER (WHERE {PLAYED}) AS last_round_played,
                max(kickoff_utc) FILTER (WHERE {PLAYED}) AS last_match_date
         FROM fixtures f GROUP BY season HAVING count(*) >= 100 ORDER BY season DESC
@@ -99,6 +123,8 @@ def data_coverage(conn: Connection) -> dict:
         "limitations": [
             "Only seasons listed here exist. Anything earlier (e.g. all-time records) is NOT in the data.",
             "Lineups, goals and match stats exist only for matches_with_details.",
+            "For matches_missing_goal_details the provider sent fewer goal events than the final score, "
+            "so per-player goal/assist totals can be slightly low.",
             "Goal events have scorer, assist, minute and penalty flag. No cards/substitution events per player.",
             "No minutes played: appearances are counted as starts and bench appearances (a listed substitute "
             "may not have entered the game).",

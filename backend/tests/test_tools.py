@@ -82,15 +82,29 @@ def test_home_plus_away_equals_total(conn):
         assert home.get(team, 0) + away.get(team, 0) == pts
 
 
-def test_goal_rows_match_final_scores(conn):
+def test_every_raw_goal_event_became_a_row(conn):
+    """Our normalization must not drop goals (provider gaps are a separate, known issue)."""
     mismatches = conn.execute(
         """
         SELECT count(*) AS n FROM fixtures f
-        WHERE f.details_fetched AND f.status = 'FINISHED'
-          AND (SELECT count(*) FROM goals g WHERE g.fixture_id = f.id) <> f.home_score + f.away_score
+        JOIN raw.api_responses r ON r.endpoint = '/fixtures/' || f.id || '/events'
+        WHERE f.details_fetched
+          AND (SELECT count(*) FROM jsonb_array_elements(r.payload -> 'data') e WHERE e ->> 'type' = 'GOAL')
+              <> (SELECT count(*) FROM goals g WHERE g.fixture_id = f.id)
         """
     ).fetchone()["n"]
     assert mismatches == 0
+
+
+def test_goals_complete_flag_matches_scores(conn):
+    wrong = conn.execute(
+        """
+        SELECT count(*) AS n FROM fixtures f
+        WHERE f.details_fetched AND f.goals_complete IS DISTINCT FROM
+              ((SELECT count(*) FROM goals g WHERE g.fixture_id = f.id) = f.home_score + f.away_score)
+        """
+    ).fetchone()["n"]
+    assert wrong == 0
 
 
 def test_top_scorer_goals_match_player_stats(conn):

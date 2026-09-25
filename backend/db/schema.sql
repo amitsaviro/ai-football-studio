@@ -62,6 +62,8 @@ CREATE TABLE IF NOT EXISTS fixtures (
 CREATE INDEX IF NOT EXISTS fixtures_season_idx ON fixtures (season);
 CREATE INDEX IF NOT EXISTS fixtures_home_idx   ON fixtures (home_team_id);
 CREATE INDEX IF NOT EXISTS fixtures_away_idx   ON fixtures (away_team_id);
+-- false when the provider's goal events don't add up to the final score (e.g. it sent none at all)
+ALTER TABLE fixtures ADD COLUMN IF NOT EXISTS goals_complete boolean;
 
 CREATE TABLE IF NOT EXISTS lineups (
     fixture_id   text NOT NULL REFERENCES fixtures(id) ON DELETE CASCADE,

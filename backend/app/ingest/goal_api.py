@@ -166,7 +166,14 @@ def load_fixture_details(conn: Connection, client: GoalApiClient, fixture: dict)
                 (fid, team_by_side[side], s["type"], to_number(s.get(side))),
             )
 
-    conn.execute("UPDATE fixtures SET details_fetched = true WHERE id = %s", (fid,))
+    conn.execute(
+        """
+        UPDATE fixtures SET details_fetched = true,
+               goals_complete = (SELECT count(*) FROM goals WHERE fixture_id = %(id)s) = home_score + away_score
+        WHERE id = %(id)s
+        """,
+        {"id": fid},
+    )
 
 
 def sync_details(conn: Connection, client: GoalApiClient, max_fixtures: int | None = None) -> int:
