@@ -12,6 +12,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from app.speech.prepare import display_text  # noqa: E402
+
 from app.agents.panel import GUESTS, run_panel  # noqa: E402
 
 DIM, BOLD, RESET = "\033[2m", "\033[1m", "\033[0m"
@@ -35,7 +37,7 @@ def main() -> None:
             call_args = json.dumps(event.data["input"], ensure_ascii=False)
             print(f"{DIM}  🔧 {event.data['name']}({call_args}){RESET}")
         elif event.type == "answer":
-            print(f"{color}{event.data['text']}{RESET}")
+            print(f"{color}{display_text(event.data['text'])}{RESET}")
         elif event.type == "error":
             print(f"שגיאה: {event.data['message']}")
         elif event.type == "panel_done":

@@ -1,0 +1,215 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>אב-טיפוס: אווטר תלת-ממדי מדבר עברית</title>
+<style>
+  :root { --bg: #0f1115; --panel: #181b22; --text: #eef0f3; --muted: #9aa1ad; --accent: #3b82f6; --border: #2a2f3a; }
+  body { margin: 0; font-family: system-ui, -apple-system, "Segoe UI", sans-serif; background: var(--bg); color: var(--text); }
+  .wrap { max-width: 980px; margin: 0 auto; padding: 16px; display: grid; grid-template-columns: minmax(0, 1fr) 300px; gap: 16px; }
+  @media (max-width: 760px) { .wrap { grid-template-columns: 1fr; } }
+  #avatar { height: 560px; border-radius: 16px; overflow: hidden; position: relative;
+            background: radial-gradient(ellipse at 50% 35%, #2a3140 0%, #12151b 70%); }
+  #status { position: absolute; bottom: 10px; right: 12px; left: 12px; font-size: 13px; color: var(--muted); }
+  .panel { background: var(--panel); border: 1px solid var(--border); border-radius: 16px; padding: 14px; display: flex; flex-direction: column; gap: 12px; }
+  h1 { font-size: 18px; font-weight: 600; margin: 0; } h2 { font-size: 13px; font-weight: 500; color: var(--muted); margin: 0 0 6px; }
+  select, button { width: 100%; font: inherit; font-size: 14px; padding: 9px 10px; border-radius: 10px; border: 1px solid var(--border);
+                   background: #222733; color: var(--text); cursor: pointer; }
+  button.primary { background: var(--accent); border-color: var(--accent); }
+  button.rec { background: #b91c1c; border-color: #b91c1c; }
+  .row { display: flex; gap: 8px; } .row > * { flex: 1; }
+  label.toggle { display: flex; align-items: center; gap: 8px; font-size: 14px; cursor: pointer; }
+  .hint { font-size: 12px; color: var(--muted); line-height: 1.5; }
+  input[type=file] { display: none; }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js/+esm",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/",
+  "talkinghead": "https://cdn.jsdelivr.net/gh/met4citizen/TalkingHead@1.7/modules/talkinghead.mjs"
+} }
+</script>
+</head>
+<body>
+<div class="wrap">
+  <div id="avatar"><div id="status">טוען...</div></div>
+
+  <div class="panel">
+    <h1>אב-טיפוס: אווטר מדבר עברית</h1>
+
+    <div>
+      <h2>דמות לדוגמה (לפי כלי היצירה)</h2>
+      <select id="avatarSelect">
+        <option value="avatarsdk|M">גבר — MetaPerson (מתמונה, מציאותי)</option>
+        <option value="avaturn|F">אישה — Avaturn (מתמונה, מציאותי)</option>
+        <option value="brunette|F">אישה — דמות בסיסית של הספרייה</option>
+      </select>
+    </div>
+
+    <div>
+      <h2>מצב רוח</h2>
+      <select id="mood">
+        <option value="neutral">רגיל</option><option value="happy">שמח</option><option value="angry">כועס</option>
+      </select>
+    </div>
+
+    <div>
+      <h2>סנכרון שפתיים</h2>
+      <select id="syncMode">
+        <option value="text">לפי הטקסט + זמני המילים (מדויק)</option>
+        <option value="audio">לפי הצליל בלבד (HeadAudio)</option>
+        <option value="off">כבוי (להשוואה)</option>
+      </select>
+    </div>
+
+    <div>
+      <h2>להשמיע</h2>
+      <div class="row">
+        <button class="primary" data-clip="yossi">יוסי</button>
+        <button class="primary" data-clip="miki">מיקי</button>
+      </div>
+      <div class="row" style="margin-top:8px">
+        <button data-clip="yossi_niqqud">יוסי — עם ניקוד ("הָרָעָב")</button>
+      </div>
+    </div>
+
+    <div class="row">
+      <button id="recBtn">🎤 הקלט את עצמך</button>
+      <button id="fileBtn">📁 קובץ קול</button>
+      <input type="file" id="fileInput" accept="audio/*">
+    </div>
+
+    <p class="hint">הקול: "אבי" של Microsoft (גבר), עם גובה וקצב שונים ליוסי ולמיקי.
+      "הקלט את עצמך" עובד רק במצב "לפי הצליל", כי להקלטה אין טקסט.</p>
+  </div>
+</div>
+
+<script type="module">
+import { TalkingHead } from "talkinghead";
+import { HeadAudio } from "https://cdn.jsdelivr.net/gh/met4citizen/HeadAudio@main/dist/headaudio.min.mjs";
+import { LipsyncHe } from "./lipsync-he.mjs";
+
+const HA = "https://cdn.jsdelivr.net/gh/met4citizen/HeadAudio@main/dist/";
+const AVATARS = "https://raw.githubusercontent.com/met4citizen/TalkingHead/main/avatars/";
+const statusEl = document.getElementById("status");
+const setStatus = t => statusEl.textContent = t;
+
+const head = new TalkingHead(document.getElementById("avatar"), {
+  lipsyncModules: ["en"],
+  cameraView: "upper",
+  mixerGainSpeech: 3,
+});
+
+// --- Audio-driven lip-sync: HeadAudio listens to the speech audio and drives the mouth visemes.
+let headaudio = null;
+window.head = head;  // for debugging from the browser console
+head.lipsync.he = new LipsyncHe();  // our Hebrew module, next to the built-in ones
+const syncMode = () => document.getElementById("syncMode").value;
+async function setupHeadAudio() {
+  await head.audioCtx.audioWorklet.addModule(HA + "headworklet.min.mjs");
+  headaudio = new HeadAudio(head.audioCtx, {
+    processorOptions: {},
+    parameterData: { vadGateActiveDb: -40, vadGateInactiveDb: -60 },
+  });
+  await headaudio.loadModel(HA + "model-en-mixed.bin");
+  // Delay what we hear by 100ms so the mouth (which needs a moment to analyze) lines up with it.
+  const delay = new DelayNode(head.audioCtx, { delayTime: 0.1 });
+  head.audioSpeechGainNode.disconnect(head.audioReverbNode);
+  head.audioSpeechGainNode.connect(delay);
+  delay.connect(head.audioReverbNode);
+  head.audioSpeechGainNode.connect(headaudio);
+  headaudio.onvalue = (key, value) => {
+    if (syncMode() !== "audio") return;  // text mode drives the mouth itself
+    Object.assign(head.mtAvatar[key], { newvalue: value, needsUpdate: true });
+  };
+  head.opt.update = headaudio.update.bind(headaudio);
+  window.headaudio = headaudio;
+}
+
+async function loadAvatar() {
+  const [name, body] = document.getElementById("avatarSelect").value.split("|");
+  setStatus("טוען דמות... (בפעם הראשונה זה לוקח כמה שניות)");
+  try {
+    await head.showAvatar({
+      url: AVATARS + name + ".glb",
+      body,
+      avatarMood: document.getElementById("mood").value,
+      lipsyncLang: "he",
+    }, ev => {
+      if (ev.lengthComputable) setStatus(`טוען דמות... ${Math.round(100 * ev.loaded / ev.total)}%`);
+    });
+    setStatus("מוכן. לחץ על יוסי או מיקי.");
+  } catch (e) {
+    setStatus("שגיאה בטעינת הדמות: " + e);
+  }
+}
+
+// Occasional hand gestures and eye contact while talking, so it doesn't look frozen.
+function performWhileTalking(seconds) {
+  head.lookAtCamera(1500);
+  const gestures = ["index", "handup", "side"];
+  for (let t = 1.2; t < seconds - 1; t += 2.8 + Math.random() * 1.5) {
+    setTimeout(() => head.playGesture(gestures[Math.floor(Math.random() * gestures.length)], 1.8), t * 1000);
+  }
+}
+
+// timing = { words, wtimes, wdurations } from the TTS word boundaries (text mode only)
+async function speakBuffer(audioBuffer, timing = null) {
+  await head.audioCtx.resume();
+  const r = { audio: audioBuffer };
+  if (timing && syncMode() === "text") Object.assign(r, timing);
+  head.speakAudio(r, { lipsyncLang: "he" });
+  performWhileTalking(audioBuffer.duration);
+}
+
+async function speakArrayBuffer(arrayBuffer, timing = null) {
+  const buffer = await head.audioCtx.decodeAudioData(arrayBuffer);
+  await speakBuffer(buffer, timing);
+}
+
+document.querySelectorAll("[data-clip]").forEach(btn => btn.onclick = async () => {
+  setStatus("מדבר...");
+  const [audio, timing] = await Promise.all([
+    fetch(btn.dataset.clip + ".mp3").then(r => r.arrayBuffer()),
+    fetch(btn.dataset.clip + ".json").then(r => r.json()),
+  ]);
+  await speakArrayBuffer(audio, { words: timing.words, wtimes: timing.wtimes, wdurations: timing.wdurations });
+});
+
+document.getElementById("fileBtn").onclick = () => document.getElementById("fileInput").click();
+document.getElementById("fileInput").onchange = async e => {
+  const f = e.target.files[0];
+  if (f) await speakArrayBuffer(await f.arrayBuffer());
+};
+
+let recorder = null;
+document.getElementById("recBtn").onclick = async () => {
+  const btn = document.getElementById("recBtn");
+  if (recorder && recorder.state === "recording") { recorder.stop(); return; }
+  const stream = await navigator.mediaDevices.getUserMedia({ audio: true });
+  const chunks = [];
+  recorder = new MediaRecorder(stream);
+  recorder.ondataavailable = e => chunks.push(e.data);
+  recorder.onstop = async () => {
+    stream.getTracks().forEach(t => t.stop());
+    btn.textContent = "🎤 הקלט את עצמך"; btn.classList.remove("rec");
+    await speakArrayBuffer(await new Blob(chunks).arrayBuffer());
+  };
+  recorder.start();
+  btn.textContent = "⏹ עצור והשמע"; btn.classList.add("rec");
+  setStatus("מקליט... דבר עברית ולחץ שוב כדי לעצור.");
+};
+
+document.getElementById("avatarSelect").onchange = loadAvatar;
+document.getElementById("mood").onchange = e => head.setMood(e.target.value);
+
+try {
+  await setupHeadAudio();
+} catch (e) {
+  setStatus("סנכרון השפתיים לא נטען: " + e);
+}
+await loadAvatar();
+</script>
+</body>
+</html>

@@ -13,6 +13,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
+from app.speech.prepare import display_text  # noqa: E402
+
 from app.agents.personas import EX_PLAYER, STATISTICIAN, SUPER_AGENT, SUPER_FAN  # noqa: E402
 from app.agents.pundit import ask  # noqa: E402
 
@@ -37,7 +39,7 @@ def run(question: str, history: list[dict], pundit: str) -> list[dict]:
             print(f"{DIM}   ↳ {preview[:160]}{'…' if len(preview) > 160 else ''}{RESET}")
         elif event.type == "answer":
             u = event.data["usage"]
-            print(f"\n{BOLD}{display_name}:{RESET} {event.data['text']}\n")
+            print(f"\n{BOLD}{display_name}:{RESET} {display_text(event.data['text'])}\n")
             cost = f"${u['cost_usd']:.4f}" if u["cost_usd"] is not None else "?"
             print(f"{DIM}[{u['model']} | {u['api_calls']} calls | in {u['input_tokens']} "
                   f"+ cache r/w {u['cache_read_tokens']}/{u['cache_write_tokens']} | out {u['output_tokens']} "
