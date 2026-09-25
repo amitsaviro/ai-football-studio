@@ -13,14 +13,16 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
-from app.agents.personas import EX_PLAYER, STATISTICIAN  # noqa: E402
+from app.agents.personas import EX_PLAYER, STATISTICIAN, SUPER_AGENT, SUPER_FAN  # noqa: E402
 from app.agents.pundit import ask  # noqa: E402
 
 DIM, BOLD, RESET = "\033[2m", "\033[1m", "\033[0m"
 
 PUNDITS = {
-    "stats": ("הסטטיסטיקאי", STATISTICIAN),
+    "stats": ("מיקי הסטטיסטיקאי", STATISTICIAN),
     "karusela": ("יוסי קרוסלה", EX_PLAYER),
+    "agent": ("מוטי דיל", SUPER_AGENT),
+    "fan": ("צחי מהיציע", SUPER_FAN),
 }
 
 
