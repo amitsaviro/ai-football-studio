@@ -21,6 +21,7 @@ from datetime import datetime
 from pathlib import Path
 
 from fastapi import FastAPI, Query
+from fastapi.middleware.gzip import GZipMiddleware
 from fastapi.responses import StreamingResponse
 from fastapi.staticfiles import StaticFiles
 
@@ -50,6 +51,9 @@ TOOL_LABELS = {
 }
 
 app = FastAPI(title="AI Football Studio")
+# Avatars are ~9MB each but gzip to ~3.5MB. The SSE stream is excluded by Starlette's defaults,
+# so live events are not buffered.
+app.add_middleware(GZipMiddleware, minimum_size=1024)
 
 
 def sse(event: str, data: dict) -> str:
@@ -123,5 +127,6 @@ def debate(question: str = Query("", max_length=300), guests: str = ",".join(GUE
 
 
 # Static files last, so /api/* wins.
-app.mount("/avatars", StaticFiles(directory=ROOT / "frontend" / "prototype" / "avatars"), name="avatars")
+# Compressed avatars (1024px WebP textures): see "Compress avatars" in README.
+app.mount("/avatars", StaticFiles(directory=ROOT / "frontend" / "avatars"), name="avatars")
 app.mount("/", StaticFiles(directory=ROOT / "frontend" / "studio", html=True), name="studio")

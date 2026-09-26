@@ -31,6 +31,19 @@ psql -d football -f db/readonly_role.sql    # read-only role for the run_sql too
 pytest tests
 ```
 
+## Characters (Blender → browser)
+Characters are built in Blender with the free MPFB add-on, then exported headlessly:
+```bash
+blender -b tools/blender/yossi.blend --python blender/export_avatar.py -- frontend/prototype/avatars/yossi.glb
+sh blender/compress_avatars.sh yossi      # 1024px WebP textures: ~21MB -> ~9MB (~3.5MB gzipped)
+```
+
+## Run the studio
+```bash
+cd backend && .venv/bin/uvicorn app.server:app --port 8010
+# open http://localhost:8010 : "▶ דיון לדוגמה" replays a recorded debate for free
+```
+
 ## Data quality notes
 The free data source has known problems. The pipeline works around them instead of trusting the provider's aggregates:
 - **The top-scorers and standings endpoints are wrong or stale.** Tables and scorer lists are computed from raw results and goal events.
