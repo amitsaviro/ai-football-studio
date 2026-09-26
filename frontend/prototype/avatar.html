@@ -41,7 +41,10 @@
     <div>
       <h2>דמות לדוגמה (לפי כלי היצירה)</h2>
       <select id="avatarSelect">
+        <option value="local:yossi|M">⭐ יוסי קרוסלה — הדמות שלנו (MPFB)</option>
+        <option value="local:avi|M">⭐ אבי המגיש — הדמות שלנו (MPFB)</option>
         <option value="avatarsdk|M">גבר — MetaPerson (מתמונה, מציאותי)</option>
+        <option value="mpfb|M">MPFB (Blender) — חינמי לגמרי, בלי הגבלה</option>
         <option value="avaturn|F">אישה — Avaturn (מתמונה, מציאותי)</option>
         <option value="brunette|F">אישה — דמות בסיסית של הספרייה</option>
       </select>
@@ -99,7 +102,14 @@ const head = new TalkingHead(document.getElementById("avatar"), {
   lipsyncModules: ["en"],
   cameraView: "upper",
   mixerGainSpeech: 3,
+  // Softer than the defaults (2 / 30): our MPFB skins looked washed out.
+  lightAmbientIntensity: 1,
+  lightDirectIntensity: 12,
 });
+
+// Our MPFB characters have narrower eyes than the library's samples; with the idle
+// micro-expressions (slight blink + look down) they looked closed. Open them a bit at rest.
+const OUR_BASELINE = { eyeBlinkLeft: -0.25, eyeBlinkRight: -0.25, eyesLookDown: -0.15 };
 
 // --- Audio-driven lip-sync: HeadAudio listens to the speech audio and drives the mouth visemes.
 let headaudio = null;
@@ -132,10 +142,11 @@ async function loadAvatar() {
   setStatus("טוען דמות... (בפעם הראשונה זה לוקח כמה שניות)");
   try {
     await head.showAvatar({
-      url: AVATARS + name + ".glb",
+      url: name.startsWith("local:") ? `avatars/${name.slice(6)}.glb?v=${Date.now()}` : AVATARS + name + ".glb",
       body,
       avatarMood: document.getElementById("mood").value,
       lipsyncLang: "he",
+      ...(name.startsWith("local:") ? { baseline: OUR_BASELINE } : {}),
     }, ev => {
       if (ev.lengthComputable) setStatus(`טוען דמות... ${Math.round(100 * ev.loaded / ev.total)}%`);
     });

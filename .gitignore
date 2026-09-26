@@ -21,3 +21,9 @@ backend/data/
 .DS_Store
 .vscode/
 .idea/
+
+# Local tools and downloads
+tools/
+
+# Exported avatars are large (~20MB each); compress before committing
+frontend/prototype/avatars/*.glb
