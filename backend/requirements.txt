@@ -3,3 +3,5 @@ python-dotenv>=1.0
 psycopg[binary]>=3.2
 anthropic>=1.0
 edge-tts>=7.2
+fastapi>=0.115
+uvicorn>=0.30

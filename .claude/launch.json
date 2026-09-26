@@ -2,9 +2,15 @@
   "version": "0.0.1",
   "configurations": [
     {
+      "name": "studio",
+      "runtimeExecutable": "backend/.venv/bin/uvicorn",
+      "runtimeArgs": ["app.server:app", "--app-dir", "backend", "--port", "8010"],
+      "port": 8010
+    },
+    {
       "name": "prototype",
       "runtimeExecutable": "python3",
-      "runtimeArgs": ["-m", "http.server", "8765", "--directory", "frontend/prototype"],
+      "runtimeArgs": ["-m", "http.server", "8765", "--directory", "frontend"],
       "port": 8765
     }
   ]

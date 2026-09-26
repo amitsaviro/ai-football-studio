@@ -1,0 +1,338 @@
+<!DOCTYPE html>
+<html lang="he" dir="rtl">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>אולפן ליגת העל</title>
+<style>
+  :root {
+    --bg: #04060c; --wall-a: #081a3f; --wall-b: #0a3b66; --neon: #35d6ff; --neon-soft: rgba(53, 214, 255, .35);
+    --live: #ff3b4e; --text: #eef3ff; --muted: #9fb0cc; --plate: rgba(6, 14, 32, .85);
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; height: 100%; background: var(--bg); color: var(--text);
+               font-family: system-ui, -apple-system, "Segoe UI", sans-serif; overflow: hidden; }
+
+  .studio { position: relative; height: 100vh; min-height: 620px; overflow: hidden;
+            background: radial-gradient(ellipse at 50% 20%, #0d1a36 0%, var(--bg) 70%); }
+
+  /* LED wall */
+  .wall { position: absolute; top: 3.5%; left: 5%; right: 5%; height: 52%; border-radius: 22px; overflow: hidden;
+          background: linear-gradient(135deg, var(--wall-a), var(--wall-b) 55%, var(--wall-a));
+          box-shadow: 0 0 90px rgba(0, 140, 255, .28), inset 0 0 0 1px rgba(120, 200, 255, .18); }
+  .wall::before { content: ""; position: absolute; inset: 0;  /* LED pixel grid */
+          background-image: radial-gradient(rgba(255,255,255,.07) 1px, transparent 1.4px); background-size: 6px 6px; }
+  .wall::after { content: ""; position: absolute; inset: -40% -10%;  /* moving sheen */
+          background: linear-gradient(100deg, transparent 40%, rgba(120, 220, 255, .10) 50%, transparent 60%);
+          animation: sheen 9s linear infinite; }
+  @keyframes sheen { from { transform: translateX(-60%); } to { transform: translateX(60%); } }
+  .pitch { position: absolute; inset: 12% 14% 20%; width: 72%; height: 68%; opacity: .22; }
+  .brand { position: absolute; top: 5%; right: 0; left: 0; display: flex; justify-content: center; align-items: center; gap: 14px; z-index: 2; }
+  .brand h1 { margin: 0; font-size: clamp(22px, 3.2vw, 44px); font-weight: 800; letter-spacing: .5px;
+              text-shadow: 0 0 22px var(--neon-soft); }
+  .brand .ball { font-size: clamp(22px, 3vw, 40px); filter: drop-shadow(0 0 10px var(--neon-soft)); }
+  .live { position: absolute; top: 6%; left: 3%; display: flex; align-items: center; gap: 8px; font-weight: 700;
+          font-size: 14px; letter-spacing: 2px; z-index: 2; }
+  .live i { width: 11px; height: 11px; border-radius: 50%; background: var(--live); box-shadow: 0 0 12px var(--live);
+            animation: blink 1.4s ease-in-out infinite; }
+  @keyframes blink { 50% { opacity: .25; } }
+  .question { position: absolute; top: 23%; right: 8%; left: 8%; text-align: center; z-index: 2;
+              font-size: clamp(16px, 1.9vw, 26px); font-weight: 600; color: #d8ecff; min-height: 1.4em; }
+  .ticker { position: absolute; bottom: 0; right: 0; left: 0; height: 38px; background: rgba(0, 0, 0, .45);
+            border-top: 1px solid rgba(120, 200, 255, .25); overflow: hidden; z-index: 2; }
+  .ticker span { position: absolute; white-space: nowrap; line-height: 38px; font-size: 15px; color: #cfe6ff;
+                 animation: ticker 38s linear infinite; }
+  @keyframes ticker { from { transform: translateX(-100vw); } to { transform: translateX(100%); } }
+
+  /* spotlights, floor */
+  .spot { position: absolute; top: -5%; width: 34vw; height: 110%; pointer-events: none; mix-blend-mode: screen;
+          background: radial-gradient(ellipse at 50% 0%, rgba(160, 210, 255, .16), transparent 62%); }
+  .spot.a { left: -6vw; transform: rotate(14deg); } .spot.b { right: -6vw; transform: rotate(-14deg); }
+  .spot.c { left: 33vw; opacity: .7; }
+  .floor { position: absolute; bottom: 0; left: -20%; right: -20%; height: 42%; transform-origin: bottom;
+           transform: perspective(600px) rotateX(58deg); opacity: .5;
+           background-image: linear-gradient(rgba(53, 214, 255, .22) 1px, transparent 1px),
+                             linear-gradient(90deg, rgba(53, 214, 255, .22) 1px, transparent 1px);
+           background-size: 70px 70px; mask-image: linear-gradient(to top, black, transparent); }
+
+  /* seats + desk */
+  .seats { position: absolute; bottom: 17%; left: 2%; right: 2%; height: 52%; display: flex; justify-content: center;
+           align-items: flex-end; gap: 1vw; z-index: 3; }
+  .seat { position: relative; flex: 1 1 0; max-width: 250px; height: 100%; transition: transform .45s, filter .45s; filter: brightness(.78); }
+  .seat.host { max-width: 280px; }
+  .seat.active { transform: translateY(-10px) scale(1.04); filter: brightness(1.08); }
+  .stage { position: absolute; inset: 0; }
+  .placeholder { position: absolute; inset: 20% 12% 0; display: flex; align-items: flex-end; justify-content: center; }
+  .placeholder svg { width: 70%; opacity: .9; filter: drop-shadow(0 0 14px var(--neon-soft)); }
+  .placeholder span { position: absolute; bottom: 38%; font-size: 12px; letter-spacing: 1px; color: var(--muted); }
+  .desk { position: absolute; bottom: 7%; left: 1%; right: 1%; height: 17%; z-index: 4;
+          border-radius: 55% 55% 12px 12px / 60% 60% 12px 12px;
+          background: linear-gradient(to bottom, #13233f, #060b16 70%);
+          box-shadow: 0 -2px 0 var(--neon), 0 -8px 30px var(--neon-soft), inset 0 18px 30px rgba(255,255,255,.06); }
+  .plates { position: absolute; bottom: 15.5%; left: 2%; right: 2%; display: flex; justify-content: center; gap: 1vw; z-index: 5; }
+  .plate { flex: 1 1 0; max-width: 250px; text-align: center; padding: 6px 8px; border-radius: 10px; background: var(--plate);
+           border: 1px solid rgba(120, 200, 255, .2); transition: box-shadow .35s, border-color .35s; }
+  .plate.host { max-width: 280px; }
+  .plate b { display: block; font-size: clamp(12px, 1.2vw, 16px); }
+  .plate small { color: var(--muted); font-size: clamp(10px, .95vw, 13px); }
+  .plate.active { border-color: var(--neon); box-shadow: 0 0 18px var(--neon-soft); }
+  .thinking { position: absolute; top: 4%; right: 50%; transform: translateX(50%); white-space: nowrap; z-index: 6;
+              background: rgba(0, 0, 0, .7); border: 1px solid var(--neon); border-radius: 999px; padding: 4px 12px;
+              font-size: 13px; color: #d9f5ff; opacity: 0; transition: opacity .25s; }
+  .thinking.on { opacity: 1; }
+  .ring { position: absolute; bottom: 8%; right: 50%; transform: translateX(50%); display: flex; gap: 3px; height: 16px;
+          align-items: flex-end; opacity: 0; z-index: 6; }
+  .seat.talking .ring { opacity: 1; }
+  .ring i { width: 4px; background: var(--neon); border-radius: 2px; animation: eq .8s ease-in-out infinite; }
+  .ring i:nth-child(2) { animation-delay: .15s; } .ring i:nth-child(3) { animation-delay: .3s; } .ring i:nth-child(4) { animation-delay: .45s; }
+  @keyframes eq { 0%, 100% { height: 4px; } 50% { height: 16px; } }
+
+  /* captions + controls */
+  .captions { position: absolute; bottom: 7.2%; right: 50%; transform: translateX(50%); width: min(900px, 92vw); z-index: 7;
+              text-align: center; font-size: clamp(15px, 1.5vw, 21px); line-height: 1.5; height: 3em; overflow: hidden;
+              padding: 0 12px; border-radius: 10px; background: rgba(0, 0, 0, .55); text-shadow: 0 2px 8px #000; }
+  .captions .who { color: var(--neon); font-weight: 700; margin-left: 8px; }
+  .captions .rest { color: rgba(238, 243, 255, .45); }
+  .controls { position: absolute; bottom: 1.2%; right: 50%; transform: translateX(50%); width: min(820px, 94vw); z-index: 8;
+              display: flex; gap: 8px; }
+  .controls input { flex: 1; min-width: 0; font: inherit; font-size: 15px; padding: 10px 14px; border-radius: 12px; color: var(--text);
+                    background: rgba(8, 16, 34, .9); border: 1px solid rgba(120, 200, 255, .3); }
+  .controls button { font: inherit; font-size: 14px; padding: 10px 14px; border-radius: 12px; border: 0; cursor: pointer; white-space: nowrap;
+                     color: #04111f; background: var(--neon); font-weight: 700; }
+  .controls button.ghost { background: transparent; color: var(--text); border: 1px solid rgba(120, 200, 255, .35); font-weight: 500; }
+  .controls button:disabled { opacity: .5; cursor: default; }
+  .status { position: absolute; top: 1%; right: 1.2%; font-size: 12px; color: var(--muted); z-index: 8; }
+  @media (max-width: 700px) { .plate small { display: none; } .seat.host, .plate.host { max-width: none; } }
+</style>
+<script type="importmap">
+{ "imports": {
+  "three": "https://cdn.jsdelivr.net/npm/three@0.180.0/build/three.module.js/+esm",
+  "three/addons/": "https://cdn.jsdelivr.net/npm/three@0.180.0/examples/jsm/",
+  "talkinghead": "https://cdn.jsdelivr.net/gh/met4citizen/TalkingHead@1.7/modules/talkinghead.mjs"
+} }
+</script>
+</head>
+<body>
+<div class="studio">
+  <div class="spot a"></div><div class="spot b"></div><div class="spot c"></div>
+  <div class="floor"></div>
+
+  <div class="wall">
+    <svg class="pitch" viewBox="0 0 1050 680" fill="none" stroke="#9fe3ff" stroke-width="4" aria-hidden="true">
+      <rect x="10" y="10" width="1030" height="660" rx="6"/><line x1="525" y1="10" x2="525" y2="670"/>
+      <circle cx="525" cy="340" r="92"/><circle cx="525" cy="340" r="5" fill="#9fe3ff"/>
+      <rect x="10" y="178" width="165" height="324"/><rect x="875" y="178" width="165" height="324"/>
+      <rect x="10" y="258" width="55" height="164"/><rect x="985" y="258" width="55" height="164"/>
+      <path d="M175 285 a 92 92 0 0 1 0 110"/><path d="M875 285 a 92 92 0 0 0 0 110"/>
+    </svg>
+    <div class="live"><i></i>LIVE</div>
+    <div class="brand"><span class="ball">⚽</span><h1>אולפן ליגת העל</h1></div>
+    <div class="question" id="question"></div>
+    <div class="ticker"><span id="ticker">פאנל הפרשנים של ליגת העל • כל מספר נבדק מול נתונים אמיתיים • מיקי הסטטיסטיקאי • יוסי קרוסלה ישראלי • מוטי דיל • צחי מהיציע • בהנחיית אבי</span></div>
+  </div>
+
+  <div class="seats" id="seats"></div>
+  <div class="desk"></div>
+  <div class="plates" id="plates"></div>
+  <div class="captions" id="captions"></div>
+
+  <div class="controls">
+    <input id="ask" placeholder="שאלו את הפאנל... למשל: מי יזכה באליפות העונה?" maxlength="300">
+    <button id="go">שאל את הפאנל</button>
+    <button id="demo" class="ghost">▶ דיון לדוגמה</button>
+  </div>
+  <div class="status" id="status">טוען את האולפן...</div>
+</div>
+
+<script type="module">
+import { TalkingHead } from "talkinghead";
+import { LipsyncHe } from "./lipsync-he.mjs";
+
+// Right-to-left on screen: Yossi, Miki, Avi (center), Moti, Tzachi.
+const SEATS = [
+  { key: "karusela", name: "יוסי קרוסלה", role: "כוכב נבחרת לשעבר", avatar: "yossi" },
+  { key: "stats",    name: "מיקי",         role: "הסטטיסטיקאי",      avatar: "miki" },
+  { key: "host",     name: "אבי",          role: "מגיש",             avatar: "avi" },
+  { key: "agent",    name: "מוטי דיל",     role: "סוכן שחקנים",      avatar: "moti" },
+  { key: "fan",      name: "צחי מהיציע",   role: "הקול של היציע",    avatar: "tzachi" },
+];
+// Our MPFB faces have narrower eyes than the library samples; open them a bit at rest.
+const BASELINE = { eyeBlinkLeft: -0.25, eyeBlinkRight: -0.25, eyesLookDown: -0.15 };
+const SILHOUETTE = `<svg viewBox="0 0 200 260" aria-hidden="true">
+  <circle cx="100" cy="72" r="46" fill="#27426f" stroke="#35d6ff" stroke-opacity=".5" stroke-width="2"/>
+  <path d="M18 260c4-70 38-108 82-108s78 38 82 108z" fill="#27426f" stroke="#35d6ff" stroke-opacity=".5" stroke-width="2"/></svg>
+  <span>בקרוב באולפן</span>`;
+
+const $ = id => document.getElementById(id);
+const setStatus = t => $("status").textContent = t;
+const seats = {};
+
+// ---------- build the set ----------
+for (const s of SEATS) {
+  const seat = document.createElement("div");
+  seat.className = "seat" + (s.key === "host" ? " host" : "");
+  seat.innerHTML = `<div class="stage"></div><div class="thinking"></div><div class="ring"><i></i><i></i><i></i><i></i></div>`;
+  $("seats").append(seat);
+  const plate = document.createElement("div");
+  plate.className = "plate" + (s.key === "host" ? " host" : "");
+  plate.innerHTML = `<b>${s.name}</b><small>${s.role}</small>`;
+  $("plates").append(plate);
+  seats[s.key] = { ...s, el: seat, plate, head: null };
+}
+
+async function loadSeat(seat) {
+  const url = `/avatars/${seat.avatar}.glb`;
+  const exists = await fetch(url, { method: "HEAD" }).then(r => r.ok).catch(() => false);
+  if (!exists) {  // character not built yet: a silhouette, but it still gets a voice
+    seat.el.querySelector(".stage").innerHTML = `<div class="placeholder">${SILHOUETTE}</div>`;
+    return;
+  }
+  const head = new TalkingHead(seat.el.querySelector(".stage"), {
+    lipsyncModules: ["en"], cameraView: "upper", mixerGainSpeech: 3,
+    cameraRotateEnable: false, cameraZoomEnable: false, cameraPanEnable: false,
+    lightAmbientIntensity: 1, lightDirectIntensity: 12,
+  });
+  head.lipsync.he = new LipsyncHe();
+  await head.showAvatar({ url, body: "M", avatarMood: "neutral", lipsyncLang: "he", baseline: BASELINE });
+  seat.head = head;
+}
+
+// ---------- the show: events are played strictly in order ----------
+const queue = [];
+let draining = false;
+function enqueue(task) { queue.push(task); if (!draining) drain(); }
+async function drain() {
+  draining = true;
+  while (queue.length) {
+    try { await queue.shift()(); } catch (e) { console.error(e); }
+  }
+  draining = false;
+}
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+
+function cutTo(key) {
+  for (const s of Object.values(seats)) {
+    const on = s.key === key;
+    s.el.classList.toggle("active", on);
+    s.plate.classList.toggle("active", on);
+  }
+  const speaker = seats[key];
+  const box = speaker.el.getBoundingClientRect();
+  for (const s of Object.values(seats)) {  // everyone turns towards the speaker
+    if (!s.head) continue;
+    if (s === speaker) s.head.lookAtCamera(2000);
+    else s.head.lookAt(box.left + box.width / 2, box.top + box.height / 3, 3000);
+  }
+}
+
+function think(key, label) {
+  const bubble = seats[key].el.querySelector(".thinking");
+  bubble.textContent = "🔍 " + label + "...";
+  bubble.classList.add("on");
+}
+function stopThinking(key) { seats[key].el.querySelector(".thinking").classList.remove("on"); }
+
+// TV-style subtitles: only a window of words around the current position, never the whole answer.
+const CAPTION_BEFORE = 9, CAPTION_AFTER = 7;
+function caption(seat, allWords, spoken) {
+  const from = Math.max(0, spoken - CAPTION_BEFORE);
+  const words = allWords.slice(from, spoken + CAPTION_AFTER);
+  const spokenCount = spoken - from;
+  $("captions").innerHTML = "";
+  const who = document.createElement("span"); who.className = "who"; who.textContent = seat.name + ":";
+  const done = document.createElement("span"); done.textContent = " " + words.slice(0, spokenCount).join(" ");
+  const rest = document.createElement("span"); rest.className = "rest"; rest.textContent = " " + words.slice(spokenCount).join(" ");
+  $("captions").append(who, done, rest);
+}
+
+function b64ToArrayBuffer(b64) {
+  const bin = atob(b64), bytes = new Uint8Array(bin.length);
+  for (let i = 0; i < bin.length; i++) bytes[i] = bin.charCodeAt(i);
+  return bytes.buffer;
+}
+
+let fallbackCtx = null;
+async function speak(seat, msg) {
+  const words = msg.text.split(/\s+/);
+  const buffer = b64ToArrayBuffer(msg.audio);
+  let durationMs;
+  if (seat.head) {
+    const audio = await seat.head.audioCtx.decodeAudioData(buffer);
+    durationMs = audio.duration * 1000;
+    seat.head.speakAudio({ audio, words: msg.words, wtimes: msg.wtimes, wdurations: msg.wdurations }, { lipsyncLang: "he" });
+    const gestures = ["index", "handup", "side"];
+    for (let t = 1500; t < durationMs - 1500; t += 3200 + Math.random() * 1800) {
+      setTimeout(() => seat.head.playGesture(gestures[Math.floor(Math.random() * gestures.length)], 1.8), t);
+    }
+  } else {  // placeholder seat: play the voice without a face
+    fallbackCtx ||= new AudioContext();
+    const audio = await fallbackCtx.decodeAudioData(buffer);
+    durationMs = audio.duration * 1000;
+    const src = fallbackCtx.createBufferSource(); src.buffer = audio; src.connect(fallbackCtx.destination); src.start();
+  }
+  seat.el.classList.add("talking");
+  // Captions follow the spoken words (TTS words are the spoken form; map them onto the text by position).
+  const start = performance.now();
+  const ends = msg.wtimes.map((t, i) => t + msg.wdurations[i]);
+  while (performance.now() - start < durationMs) {
+    const elapsed = performance.now() - start;
+    const spokenTts = ends.filter(e => e <= elapsed).length;
+    caption(seat, words, Math.round(spokenTts / Math.max(1, msg.words.length) * words.length));
+    await sleep(120);
+  }
+  caption(seat, words, words.length);
+  seat.el.classList.remove("talking");
+  await sleep(350);
+}
+
+// ---------- talking to the server ----------
+let source = null;
+function start(params) {
+  if (source) source.close();
+  queue.length = 0;
+  for (const s of Object.values(seats)) s.head?.audioCtx.resume();  // audio needs a user gesture
+  $("go").disabled = $("demo").disabled = true;
+  $("captions").textContent = "";
+  setStatus(params.get("demo") ? "דיון לדוגמה" : "הפאנל מתכנס...");
+  source = new EventSource("/api/debate?" + params);
+
+  source.addEventListener("turn_start", e => { const d = JSON.parse(e.data); enqueue(async () => cutTo(d.speaker)); });
+  source.addEventListener("tool", e => {
+    const d = JSON.parse(e.data);
+    enqueue(async () => { cutTo(d.speaker); think(d.speaker, d.label); await sleep(700); });
+  });
+  source.addEventListener("speech", e => {
+    const d = JSON.parse(e.data);
+    enqueue(async () => { stopThinking(d.speaker); cutTo(d.speaker); await speak(seats[d.speaker], d); });
+  });
+  source.addEventListener("done", e => {
+    const d = JSON.parse(e.data); source.close();
+    enqueue(async () => {
+      $("go").disabled = $("demo").disabled = false;
+      setStatus(d.cost_usd ? `הדיון הסתיים · עלות: $${d.cost_usd.toFixed(2)}` : "הדיון הסתיים");
+    });
+  });
+  source.addEventListener("error", e => {
+    const msg = e.data ? JSON.parse(e.data).message : "החיבור לשרת נותק";
+    source.close(); setStatus(msg);
+    $("go").disabled = $("demo").disabled = false;
+  });
+}
+
+$("go").onclick = () => {
+  const q = $("ask").value.trim();
+  if (!q) { $("ask").focus(); return; }
+  $("question").textContent = q;
+  start(new URLSearchParams({ question: q }));
+};
+$("ask").addEventListener("keydown", e => { if (e.key === "Enter") $("go").click(); });
+$("demo").onclick = () => {
+  $("question").textContent = "מי השחקן הכי טוב בליגה העונה?";
+  start(new URLSearchParams({ demo: "1" }));
+};
+
+await Promise.all(Object.values(seats).map(loadSeat));
+setStatus("האולפן מוכן");
+</script>
+</body>
+</html>
