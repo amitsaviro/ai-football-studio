@@ -25,6 +25,9 @@ class Settings:
     pundit_model: str = os.getenv("PUNDIT_MODEL", "claude-opus-5")
     # low | medium | high | xhigh | max — how hard the model thinks; the main cost lever
     pundit_effort: str = os.getenv("PUNDIT_EFFORT", "medium")
+    # Local Seed-VC service that gives each character their own voice (voice/converter_server.py).
+    # Empty = everyone speaks in the plain TTS voice.
+    voice_converter_url: str = os.getenv("VOICE_CONVERTER_URL", "http://localhost:8020")
 
     # Goal API id of Ligat Ha'al
     goal_league_id: str = "cmr77dwbc00i0rx06adepi1hb"

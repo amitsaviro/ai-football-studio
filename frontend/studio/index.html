@@ -61,6 +61,15 @@
   .seat { position: relative; flex: 1 1 0; max-width: 250px; height: 100%; transition: transform .45s, filter .45s; filter: brightness(.78); }
   .seat.host { max-width: 280px; }
   .seat.active { transform: translateY(-10px) scale(1.04); filter: brightness(1.08); }
+  /* the speaker's spotlight: a light cone from the ceiling and a pool of light on the desk */
+  .beam { position: absolute; left: -35%; right: -35%; top: -75%; bottom: -8%; pointer-events: none; z-index: -1;
+          opacity: 0; transition: opacity .5s; mix-blend-mode: screen;
+          clip-path: polygon(40% 0, 60% 0, 100% 100%, 0 100%);
+          background: linear-gradient(to bottom, rgba(255, 244, 214, .5), rgba(255, 240, 200, .14) 60%, rgba(255, 240, 200, .05)); }
+  .beam::after { content: ""; position: absolute; left: 12%; right: 12%; bottom: -4%; height: 16%; border-radius: 50%;
+                 background: radial-gradient(ellipse, rgba(255, 238, 190, .55), transparent 70%); }
+  .seat.active .beam { opacity: 1; }
+  .studio.on-air .seat:not(.active) { filter: brightness(.55) saturate(.85); }
   .stage { position: absolute; inset: 0; }
   .placeholder { position: absolute; inset: 20% 12% 0; display: flex; align-items: flex-end; justify-content: center; }
   .placeholder svg { width: 70%; opacity: .9; filter: drop-shadow(0 0 14px var(--neon-soft)); }
@@ -102,6 +111,8 @@
   .controls button.ghost { background: transparent; color: var(--text); border: 1px solid rgba(120, 200, 255, .35); font-weight: 500; }
   .controls button:disabled { opacity: .5; cursor: default; }
   .status { position: absolute; top: 1%; right: 1.2%; font-size: 12px; color: var(--muted); z-index: 8; }
+  .clean .controls, .clean .status { display: none; }
+  .clean .captions { bottom: 3%; }
   @media (max-width: 700px) { .plate small { display: none; } .seat.host, .plate.host { max-width: none; } }
 </style>
 <script type="importmap">
@@ -163,6 +174,9 @@ const SILHOUETTE = `<svg viewBox="0 0 200 260" aria-hidden="true">
   <path d="M18 260c4-70 38-108 82-108s78 38 82 108z" fill="#27426f" stroke="#35d6ff" stroke-opacity=".5" stroke-width="2"/></svg>
   <span>בקרוב באולפן</span>`;
 
+// Face lighting (three.js lights inside each avatar's scene): the speaker is lit, the rest dimmed.
+const LIGHT = { idle: { ambient: 1, direct: 12 }, speaker: { ambient: 1.2, direct: 20 }, listener: { ambient: .7, direct: 6 } };
+
 const $ = id => document.getElementById(id);
 const setStatus = t => $("status").textContent = t;
 const seats = {};
@@ -171,7 +185,7 @@ const seats = {};
 for (const s of SEATS) {
   const seat = document.createElement("div");
   seat.className = "seat" + (s.key === "host" ? " host" : "");
-  seat.innerHTML = `<div class="stage"></div><div class="thinking"></div><div class="ring"><i></i><i></i><i></i><i></i></div>`;
+  seat.innerHTML = `<div class="beam"></div><div class="stage"></div><div class="thinking"></div><div class="ring"><i></i><i></i><i></i><i></i></div>`;
   $("seats").append(seat);
   const plate = document.createElement("div");
   plate.className = "plate" + (s.key === "host" ? " host" : "");
@@ -190,7 +204,7 @@ async function loadSeat(seat) {
   const head = new TalkingHead(seat.el.querySelector(".stage"), {
     lipsyncModules: ["en"], cameraView: "upper", mixerGainSpeech: 3,
     cameraRotateEnable: false, cameraZoomEnable: false, cameraPanEnable: false,
-    lightAmbientIntensity: 1, lightDirectIntensity: 12,
+    lightAmbientIntensity: LIGHT.idle.ambient, lightDirectIntensity: LIGHT.idle.direct,
   });
   head.lipsync.he = new LipsyncHe();
   await head.showAvatar({ url, body: "M", avatarMood: "neutral", lipsyncLang: "he", baseline: BASELINE });
@@ -210,9 +224,26 @@ async function drain() {
 }
 const sleep = ms => new Promise(r => setTimeout(r, ms));
 
+// Smoothly move one avatar's lights to a preset.
+function light(seat, preset, ms = 500) {
+  if (!seat.head) return;
+  const from = { ambient: seat.head.lightAmbient.intensity, direct: seat.head.lightDirect.intensity };
+  const t0 = performance.now();
+  const step = () => {
+    const k = Math.min(1, (performance.now() - t0) / ms);
+    seat.head.setLighting({ lightAmbientIntensity: from.ambient + (preset.ambient - from.ambient) * k,
+                            lightDirectIntensity: from.direct + (preset.direct - from.direct) * k });
+    if (k < 1) requestAnimationFrame(step);
+  };
+  step();
+}
+
 function cutTo(key) {
+  document.querySelector(".studio").classList.add("on-air");
   for (const s of Object.values(seats)) {
     const on = s.key === key;
+    if (on !== s.el.classList.contains("active") || !s.lit) light(s, on ? LIGHT.speaker : LIGHT.listener);
+    s.lit = true;
     s.el.classList.toggle("active", on);
     s.plate.classList.toggle("active", on);
   }
@@ -296,6 +327,7 @@ function start(params) {
   setStatus(params.get("demo") ? "דיון לדוגמה" : "הפאנל מתכנס...");
   source = new EventSource("/api/debate?" + params);
 
+  source.addEventListener("debate_start", e => { $("question").textContent = JSON.parse(e.data).question; });
   source.addEventListener("turn_start", e => { const d = JSON.parse(e.data); enqueue(async () => cutTo(d.speaker)); });
   source.addEventListener("tool", e => {
     const d = JSON.parse(e.data);
@@ -308,8 +340,11 @@ function start(params) {
   source.addEventListener("done", e => {
     const d = JSON.parse(e.data); source.close();
     enqueue(async () => {
+      document.querySelector(".studio").classList.remove("on-air");
+      for (const s of Object.values(seats)) { s.el.classList.remove("active"); s.plate.classList.remove("active"); light(s, LIGHT.idle); s.lit = false; }
       $("go").disabled = $("demo").disabled = false;
       setStatus(d.cost_usd ? `הדיון הסתיים · עלות: $${d.cost_usd.toFixed(2)}` : "הדיון הסתיים");
+      window.debateDone = true;  // the video recorder waits for this
     });
   });
   source.addEventListener("error", e => {
@@ -333,6 +368,16 @@ $("demo").onclick = () => {
 
 await Promise.all(Object.values(seats).map(loadSeat));
 setStatus("האולפן מוכן");
+
+// Recording mode: /?replay=<saved debate id>&clean=1 plays a saved debate by itself, without the controls.
+const page = new URLSearchParams(location.search);
+if (page.get("clean")) document.body.classList.add("clean");
+const replay = () => start(new URLSearchParams({ replay: page.get("replay") }));
+if (page.get("replay") && page.get("record")) {
+  const { record } = await import("./recorder.mjs");
+  await sleep(1500);
+  record(replay, `debate-${page.get("replay")}`, setStatus).catch(e => setStatus("ההקלטה נכשלה: " + e.message));
+} else if (page.get("replay")) { await sleep(1500); replay(); }
 </script>
 </body>
 </html>

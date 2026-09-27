@@ -1,0 +1,19 @@
+# Seed-VC dependencies for Apple Silicon (from its requirements-mac.txt, minus the GUI packages)
+accelerate
+scipy==1.13.1
+librosa==0.10.2
+huggingface-hub>=0.28.1
+munch==4.0.0
+einops==0.8.0
+descript-audio-codec==1.0.0
+pydub==0.25.1
+resemblyzer
+jiwer==3.0.3
+transformers==4.46.3
+soundfile==0.12.1
+modelscope==1.18.1
+funasr==1.1.5
+numpy==1.26.4
+pyyaml
+python-dotenv
+hydra-core==1.3.2

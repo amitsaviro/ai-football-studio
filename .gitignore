@@ -30,3 +30,9 @@ frontend/prototype/avatars/*.glb
 
 # Speech models (downloaded, large)
 backend/models/
+
+# Recorded debate videos (large)
+videos/
+
+# Local listening tests (voices, pronunciation A/B)
+frontend/prototype/ab/

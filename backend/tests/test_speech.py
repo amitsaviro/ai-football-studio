@@ -46,9 +46,11 @@ def test_niqqud_is_kept_for_speech_and_removed_for_display():
 
 
 def test_clean_keeps_only_standard_niqqud():
-    assert clean("לְֽ|מַשָּׂא וּ|מַתָּן") == "לְמַשָּׂא וּמַתָּן"          # prefix bars, meteg
+    assert clean("לְֽ|מַשָּׂא וּ|מַתָּן") == "לְמַשָּׂא וּמַתָן"          # prefix bars, meteg
     assert clean("פַּ֫עַם") == "פַּעַם"                                     # stress mark
-    assert clean("כׇּל הַנְּקֻודָּה") == "כָּל הַנְּקודָּה"                 # qamats qatan, kubutz+vav
+    assert clean("כׇּל הַנְּקֻודָּה") == "כָּל הַנְּקודָה"                  # qamats qatan, kubutz+vav
+    assert clean("דּוֹר גּוֹל תּוֹר") == "דוֹר גוֹל תוֹר"                  # dagesh in גדת read as "dvor"
+    assert clean("כּוֹס בּוֹא פּוֹל") == "כּוֹס בּוֹא פּוֹל"                # but בכפ keep it
 
 
 @pytest.mark.skipif(not MODEL_PATH.exists(), reason="Phonikud model not downloaded")

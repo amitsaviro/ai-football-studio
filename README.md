@@ -45,12 +45,29 @@ sh blender/compress_avatars.sh yossi      # 1024px WebP textures: ~21MB -> ~9MB 
 ```bash
 cd backend && .venv/bin/uvicorn app.server:app --port 8010
 # open http://localhost:8010 : "▶ דיון לדוגמה" replays a recorded debate for free
+# optional, for distinct character voices: see "Character voices" below
 ```
 
 ## Hebrew pronunciation
 Unvocalized Hebrew is ambiguous ("ספר" can be sefer, safar or sapar), so the voice sometimes guesses wrong.
 Before speaking, every answer is vocalized from context by [Phonikud](https://github.com/thewh1teagle/phonikud)
 (`app/speech/diacritize.py`). The niqqud is for the voice only; captions show plain text.
+
+## Character voices
+Hebrew TTS has one male voice, so every pundit would sound the same. Each answer is first spoken
+by that voice (good Hebrew, plus per-word timings for lip-sync). Then [Seed-VC](https://github.com/Plachtaa/seed-vc)
+re-voices it from a ~10s recording of each character. Conversion keeps the timing, so lip-sync still lines up.
+It runs as a separate local service (`voice/converter_server.py`, own Python 3.11 env). Without it,
+everyone speaks in the TTS voice. Converted speech is cached in `backend/data/tts_cache/`.
+```bash
+git clone https://github.com/Plachtaa/seed-vc tools/seed-vc
+/opt/homebrew/bin/python3.11 -m venv tools/seed-vc/.venv
+tools/seed-vc/.venv/bin/pip install torch torchaudio -r voice/requirements.txt
+# put avi.wav, miki.wav, yossi.wav, moti.wav, tzachi.wav (~10s each) in tools/voices/
+tools/seed-vc/.venv/bin/python voice/converter_server.py     # http://localhost:8020
+```
+(Chatterbox's own Hebrew TTS was tried first and mangled words. Its voice converter also changed Hebrew
+sounds. Seed-VC understands speech through Whisper, which knows Hebrew.)
 
 ## Data quality notes
 The free data source has known problems. The pipeline works around them instead of trusting the provider's aggregates:

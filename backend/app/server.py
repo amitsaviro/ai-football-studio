@@ -1,9 +1,11 @@
 """HTTP server: streams a panel debate to the browser and serves the studio page.
 
 GET /api/debate?question=...&guests=karusela,agent,fan   live debate (Claude, costs money)
-GET /api/debate?demo=1                                    replay a recorded debate (free)
+GET /api/debate?demo=1                                    replay the sample debate (free)
+GET /api/debate?replay=20260927-143000                    replay a saved debate (free)
 
-The response is a Server-Sent Events stream. For every turn the browser gets:
+The response is a Server-Sent Events stream. It starts with debate_start {question}; for every
+turn the browser then gets:
   turn_start {speaker, name}          -> the camera cuts to the speaker
   tool       {speaker, name, label}   -> "Miki is checking the league table..."
   speech     {speaker, text, audio, words, wtimes, wdurations}  -> voice + lip-sync
@@ -15,6 +17,7 @@ Run (from backend/):  .venv/bin/uvicorn app.server:app --port 8010
 import asyncio
 import json
 import logging
+import re
 import time
 from collections.abc import Iterator
 from datetime import datetime
@@ -61,9 +64,8 @@ def sse(event: str, data: dict) -> str:
     return f"event: {event}\ndata: {json.dumps(data, ensure_ascii=False)}\n\n"
 
 
-def demo_events(path: Path = DEMO_DEBATE) -> Iterator[Event]:
+def demo_events(debate: dict) -> Iterator[Event]:
     """Replay a recorded debate as if it were live, without calling Claude."""
-    debate = json.loads(path.read_text())
     pause = DEMO_TOOL_PAUSE
     for turn in debate["turns"]:
         speaker = turn["speaker"]
@@ -75,28 +77,36 @@ def demo_events(path: Path = DEMO_DEBATE) -> Iterator[Event]:
     yield Event("panel_done", {"cost_usd": 0.0})
 
 
-def debate_stream(question: str, guests: list[str], demo: bool) -> Iterator[str]:
-    """Turn panel events into SSE messages, adding a voice to every answer."""
-    events = demo_events() if demo else run_panel(question, guests)
-    turns = []
+def debate_stream(question: str, guests: list[str], recorded: dict | None = None) -> Iterator[str]:
+    """Turn panel events into SSE messages, adding a voice to every answer.
+
+    With `recorded` (a saved debate), replay it instead of running a live panel.
+    """
+    if recorded:
+        question = recorded["question"]
+    events = demo_events(recorded) if recorded else run_panel(question, guests)
+    turns, tools = [], []
+    yield sse("debate_start", {"question": question})
     try:
         for event in events:
             speaker = event.data.get("speaker")
             if event.type == "turn_start":
+                tools = []
                 yield sse("turn_start", {"speaker": speaker, "name": event.data["name"]})
             elif event.type == "tool_call":
                 name = event.data["name"]
+                tools.append(name)
                 yield sse("tool", {"speaker": speaker, "name": name, "label": TOOL_LABELS.get(name, "בודק נתונים")})
             elif event.type == "answer":
                 text = event.data["text"]
                 speech = asyncio.run(synthesize(text, speaker))  # we run in a worker thread: no loop here
-                turns.append({"speaker": speaker, "text": text})
+                turns.append({"speaker": speaker, "tools": tools, "text": text})
                 yield sse("speech", {"speaker": speaker, "text": display_text(text), **speech})
             elif event.type == "error":
                 yield sse("error", {"message": event.data["message"]})
                 return
             elif event.type == "panel_done":
-                if not demo:
+                if not recorded:
                     save_debate(question, guests, turns)
                 yield sse("done", {"cost_usd": event.data["cost_usd"]})
     except Exception as e:  # keep the browser informed instead of silently dropping the stream
@@ -113,16 +123,28 @@ def save_debate(question: str, guests: list[str], turns: list[dict]) -> Path:
     return path
 
 
+def error_stream(message: str) -> StreamingResponse:
+    return StreamingResponse(iter([sse("error", {"message": message})]), media_type="text/event-stream")
+
+
 @app.get("/api/debate")
-def debate(question: str = Query("", max_length=300), guests: str = ",".join(GUESTS), demo: bool = False):
+def debate(question: str = Query("", max_length=300), guests: str = ",".join(GUESTS), demo: bool = False,
+           replay: str = ""):
     """Stream a debate as Server-Sent Events (see module docstring)."""
     chosen = [g for g in guests.split(",") if g in GUESTS]
-    if not demo and not question.strip():
-        return StreamingResponse(iter([sse("error", {"message": "צריך לשאול שאלה"})]),
-                                 media_type="text/event-stream")
+    recorded = None
+    if demo:
+        recorded = json.loads(DEMO_DEBATE.read_text())
+    elif replay:
+        path = SAVED_DEBATES / f"{replay}.json"
+        if not re.fullmatch(r"\d{8}-\d{6}", replay) or not path.exists():  # ids only, no paths
+            return error_stream("הדיון לא נמצא")
+        recorded = json.loads(path.read_text())
+    elif not question.strip():
+        return error_stream("צריך לשאול שאלה")
     # A sync generator: Starlette iterates it in a worker thread, so the blocking Claude calls
     # don't stall the server.
-    return StreamingResponse(debate_stream(question, chosen, demo), media_type="text/event-stream",
+    return StreamingResponse(debate_stream(question, chosen, recorded), media_type="text/event-stream",
                              headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"})
 
 

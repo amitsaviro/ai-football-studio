@@ -21,9 +21,12 @@ MODEL_PATH = Path(__file__).resolve().parents[2] / "models" / "phonikud-1.0.int8
 
 # Phonikud extras the TTS voice doesn't need: '|' after prefixes (ו|מתן), stress (U+05AB)
 # and meteg (U+05BD).
-EXTRA_MARKS = re.compile(r"[|ֽ֫]")
-QAMATS_QATAN, QAMATS = "ׇ", "ָ"   # כׇּל: rare code point, the voice may not know it
-KUBUTZ_BEFORE_VAV = re.compile(r"ֻ(?=ו)")  # נְקֻודָּה: kubutz and vav both mark "u"
+EXTRA_MARKS = re.compile(r"[|\u05AB\u05BD]")
+QAMATS_QATAN, QAMATS = "\u05C7", "\u05B8"   # כׇּל: rare code point, the voice may not know it
+KUBUTZ_BEFORE_VAV = re.compile(r"\u05BB(?=ו)")  # נְקֻודָּה: kubutz and vav both mark "u"
+# Dagesh in ג/ד/ת changes nothing in modern Hebrew, but before וֹ it makes the voice read the vav
+# as a consonant: דּוֹר -> "dvor", גּוֹל -> "gvol". (בּ/כּ/פּ are read correctly and must keep it.)
+DAGESH_IN_GDT = re.compile(r"([גדת][\u0591-\u05C7]*?)\u05BC")
 
 _lock = threading.Lock()  # debates are voiced in worker threads; load the model once
 
@@ -41,7 +44,8 @@ def _model():
 def clean(vocalized: str) -> str:
     """Keep only standard niqqud that the TTS voice reads well."""
     vocalized = EXTRA_MARKS.sub("", vocalized).replace(QAMATS_QATAN, QAMATS)
-    return KUBUTZ_BEFORE_VAV.sub("", vocalized)
+    vocalized = KUBUTZ_BEFORE_VAV.sub("", vocalized)
+    return DAGESH_IN_GDT.sub(r"\1", vocalized)
 
 
 def add_niqqud(text: str) -> str:
