@@ -25,6 +25,9 @@ cd backend
 python3 -m venv .venv && source .venv/bin/activate
 pip install -r requirements-dev.txt
 cp .env.example .env                        # fill in API keys
+# Automatic niqqud for the TTS voice (Phonikud, ~300MB, git-ignored)
+curl -L -o models/phonikud-1.0.int8.onnx --create-dirs \
+  https://huggingface.co/Phonikud/phonikud-onnx/resolve/main/phonikud-1.0.int8.onnx
 
 python scripts/ingest.py                    # run daily: syncs fixtures + as many match details as the quota allows
 psql -d football -f db/readonly_role.sql    # read-only role for the run_sql tool
@@ -43,6 +46,11 @@ sh blender/compress_avatars.sh yossi      # 1024px WebP textures: ~21MB -> ~9MB 
 cd backend && .venv/bin/uvicorn app.server:app --port 8010
 # open http://localhost:8010 : "▶ דיון לדוגמה" replays a recorded debate for free
 ```
+
+## Hebrew pronunciation
+Unvocalized Hebrew is ambiguous ("ספר" can be sefer, safar or sapar), so the voice sometimes guesses wrong.
+Before speaking, every answer is vocalized from context by [Phonikud](https://github.com/thewh1teagle/phonikud)
+(`app/speech/diacritize.py`). The niqqud is for the voice only; captions show plain text.
 
 ## Data quality notes
 The free data source has known problems. The pipeline works around them instead of trusting the provider's aggregates:

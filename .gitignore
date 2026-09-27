@@ -27,3 +27,6 @@ tools/
 
 # Exported avatars are large (~20MB each); compress before committing
 frontend/prototype/avatars/*.glb
+
+# Speech models (downloaded, large)
+backend/models/

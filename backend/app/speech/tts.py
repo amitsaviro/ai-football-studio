@@ -10,6 +10,7 @@ from dataclasses import dataclass
 
 import edge_tts
 
+from app.speech.diacritize import add_niqqud
 from app.speech.prepare import prepare_for_speech
 
 TICKS_PER_MS = 10_000  # edge-tts reports offsets in 100-nanosecond units
@@ -36,10 +37,10 @@ async def synthesize(text: str, speaker: str) -> dict:
     """Speak `text` in the speaker's voice.
 
     Returns base64 MP3 audio plus TalkingHead-style timings: words, wtimes (ms), wdurations (ms).
-    The text is prepared for speech first (numbers as words, shorter pauses, niqqud kept).
+    The text is prepared for speech first (numbers as words, shorter pauses) and vocalized.
     """
     voice = VOICES.get(speaker, Voice())
-    spoken = prepare_for_speech(text)
+    spoken = add_niqqud(prepare_for_speech(text))
     communicate = edge_tts.Communicate(spoken, voice.name, rate=voice.rate, pitch=voice.pitch,
                                        boundary="WordBoundary")
     audio = bytearray()

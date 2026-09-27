@@ -1,6 +1,7 @@
 """Hebrew number normalization for TTS. Pure functions, no network or DB."""
 
 import sys
+import unicodedata
 from pathlib import Path
 
 import pytest
@@ -9,6 +10,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
 
 from app.speech.hebrew_numbers import normalize_for_speech, number_to_words  # noqa: E402
 from app.speech.prepare import display_text, prepare_for_speech  # noqa: E402
+from app.speech.diacritize import MODEL_PATH, add_niqqud, clean  # noqa: E402
 
 
 @pytest.mark.parametrize("n, words", [
@@ -41,3 +43,17 @@ def test_niqqud_is_kept_for_speech_and_removed_for_display():
     text = "זה הָרָעָב! 3 שערים."
     assert "הָרָעָב" in prepare_for_speech(text)
     assert display_text(text) == "זה הרעב! 3 שערים."
+
+
+def test_clean_keeps_only_standard_niqqud():
+    assert clean("לְֽ|מַשָּׂא וּ|מַתָּן") == "לְמַשָּׂא וּמַתָּן"          # prefix bars, meteg
+    assert clean("פַּ֫עַם") == "פַּעַם"                                     # stress mark
+    assert clean("כׇּל הַנְּקֻודָּה") == "כָּל הַנְּקודָּה"                 # qamats qatan, kubutz+vav
+
+
+@pytest.mark.skipif(not MODEL_PATH.exists(), reason="Phonikud model not downloaded")
+def test_add_niqqud_reads_homographs_from_context():
+    nfc = lambda t: unicodedata.normalize("NFC", t)  # the model may order dagesh/vowel differently
+    spoken = nfc(add_niqqud("הוא סיפר לי שהספר חדש"))
+    assert nfc("סִיפֵּר") in spoken and nfc("שֶׁהַסֵּפֶר") in spoken   # "told" vs "the book"
+    assert display_text(spoken) == "הוא סיפר לי שהספר חדש"   # captions are unaffected

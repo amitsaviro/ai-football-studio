@@ -5,3 +5,5 @@ anthropic>=1.0
 edge-tts>=7.2
 fastapi>=0.115
 uvicorn>=0.30
+phonikud>=0.1
+phonikud-onnx>=1.0
