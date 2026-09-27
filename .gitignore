@@ -25,8 +25,7 @@ backend/data/
 # Local tools and downloads
 tools/
 
-# Exported avatars are large (~20MB each); compress before committing
-frontend/prototype/avatars/*.glb
+# (raw avatar exports live in tools/avatars/, compressed copies in frontend/avatars/)
 
 # Speech models (downloaded, large)
 backend/models/
@@ -34,5 +33,5 @@ backend/models/
 # Recorded debate videos (large)
 videos/
 
-# Local listening tests (voices, pronunciation A/B)
-frontend/prototype/ab/
+# Local listening tests and experiments
+frontend/prototype/

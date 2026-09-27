@@ -170,7 +170,7 @@ sh backend/scripts/record_video.sh 20260927-150010 top-3     # -> videos/top-3.m
 
 ### Rebuild a character (Blender → browser)
 ```bash
-blender -b tools/blender/yossi.blend --python blender/export_avatar.py -- frontend/prototype/avatars/yossi.glb
+blender -b tools/blender/yossi.blend --python blender/export_avatar.py -- tools/avatars/yossi.glb
 sh blender/compress_avatars.sh yossi      # 1024px WebP textures: ~21MB -> ~9MB (~3.5MB gzipped)
 ```
 
@@ -190,3 +190,6 @@ The free data source has known problems. The pipeline works around them instead 
 - [edge-tts](https://github.com/rany2/edge-tts)
 
 All characters are fictional. Voices are recorded with the speakers' consent.
+
+## License
+[MIT](LICENSE). Seed-VC (GPL-3.0) is not part of this repository; it runs as a separate local service.

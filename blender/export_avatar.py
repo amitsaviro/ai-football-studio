@@ -7,7 +7,7 @@ materials, export GLB.
 The source .blend is never saved.
 
 Usage:
-    blender -b tools/blender/yossi.blend --python blender/export_avatar.py -- frontend/prototype/avatars/yossi.glb
+    blender -b tools/blender/yossi.blend --python blender/export_avatar.py -- tools/avatars/yossi.glb
 
 The .blend sources live in tools/blender/ (not in git: they reference the local MPFB asset library).
 """
