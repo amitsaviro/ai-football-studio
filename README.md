@@ -31,15 +31,26 @@ A debate follows a fixed script:
 ## How it works
 
 ```mermaid
-flowchart LR
-    API[Goal API<br/>1000 req/day] -->|daily ingest| RAW[(Postgres<br/>raw cache)]
-    RAW --> NORM[(normalized tables<br/>+ player identity resolution)]
-    NORM --> TOOLS[9 tools<br/>stats + sandboxed SQL]
-    TOOLS <-->|tool use| AGENTS[5 Claude agents<br/>panel orchestrator]
-    AGENTS -->|answer text| TTS[Hebrew TTS<br/>+ Phonikud niqqud]
-    TTS -->|audio + word timings| VC[Seed-VC<br/>character voice]
-    VC --> SERVER[FastAPI<br/>SSE stream + cache]
-    SERVER --> STUDIO[Browser studio<br/>three.js avatars + Hebrew lip-sync]
+flowchart TB
+    subgraph data [Data]
+        direction LR
+        API[Goal API<br/>1000 req/day] -->|daily ingest| RAW[(Postgres<br/>raw cache)] --> NORM[(normalized tables<br/>+ player identity)]
+    end
+    subgraph debate [Debate]
+        direction LR
+        TOOLS[9 tools<br/>stats + sandboxed SQL] <-->|tool use| AGENTS[5 Claude agents<br/>+ panel orchestrator]
+    end
+    subgraph speech [Voice]
+        direction LR
+        TTS[Hebrew TTS<br/>+ Phonikud niqqud] -->|audio + word timings| VC[Seed-VC<br/>character voice]
+    end
+    subgraph show [Show]
+        direction LR
+        SERVER[FastAPI<br/>SSE stream + cache] --> STUDIO[Browser studio<br/>three.js avatars + Hebrew lip-sync]
+    end
+    NORM --> TOOLS
+    AGENTS -->|answer text| TTS
+    VC --> SERVER
 ```
 
 **Agents (Claude, Anthropic API).**
